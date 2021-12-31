@@ -19,8 +19,18 @@ def fixture_dir(test_dir):
     return test_dir / "functional" / "fixtures"
 
 
-def reset_gitlab(gl):
-    # previously tools/reset_gitlab.py
+def reset_gitlab(gl: gitlab.Gitlab) -> None:
+    # Mark our resources for deletion. It takes time for them to actually be deleted
+    # though.
+    _reset_gitlab_delete_resources(gl=gl)
+
+    # Wait for all resources to be deleted
+    _reset_gitlab_wait_deletion_finish(gl=gl)
+
+
+def _reset_gitlab_delete_resources(gl: gitlab.Gitlab) -> None:
+    """Mark for deletion, resources (such as projects, groups, users) that shouldn't
+    exist. Once marked they will still take time to be deleted."""
     for project in gl.projects.list():
         logging.info(f"Marking for deletion project: {project.path_with_namespace!r}")
         for deploy_token in project.deploytokens.list():
@@ -49,13 +59,24 @@ def reset_gitlab(gl):
             logging.info(f"Marking for deletion user: {user.username!r}")
             user.delete(hard_delete=True)
 
+
+def _reset_gitlab_wait_deletion_finish(gl: gitlab.Gitlab) -> None:
+    """Wait for all of our resources to be deleted.
+
+    If anything exists then mark it again for deletion in case initial call to delete
+    didn't work, which has been seen :("""
+
     max_iterations = int(TIMEOUT / SLEEP_INTERVAL)
 
     # Ensure everything has been reset
     start_time = time.perf_counter()
 
     def wait_for_list_size(
-        rest_manager: gitlab.base.RESTManager, description: str, max_length: int = 0
+        rest_manager: gitlab.base.RESTManager,
+        description: str,
+        max_length: int = 0,
+        should_delete_func=lambda x: True,
+        delete_kwargs={},
     ) -> None:
         """Wait for the list() length to be no greater than expected maximum or fail
         test if timeout is exceeded"""
@@ -68,6 +89,19 @@ def reset_gitlab(gl):
                 f"Iteration: {count} Waiting for {description!r} items to be deleted: "
                 f"{[x.name for x in items]}"
             )
+            for item in items:
+                if should_delete_func(item):
+                    logging.info(
+                        f"Marking {description!r} item again for deletion: "
+                        f"{item.name!r}"
+                    )
+                    try:
+                        item.delete(**delete_kwargs)
+                    except gitlab.exceptions.GitlabDeleteError as exc:
+                        logging.info(
+                            f"{description!r} item already marked for deletion: "
+                            f"{item.name!r} {exc}"
+                        )
             time.sleep(SLEEP_INTERVAL)
 
         elapsed_time = time.perf_counter() - start_time
@@ -82,7 +116,19 @@ def reset_gitlab(gl):
     wait_for_list_size(rest_manager=gl.projects, description="projects")
     wait_for_list_size(rest_manager=gl.groups, description="groups")
     wait_for_list_size(rest_manager=gl.variables, description="variables")
-    wait_for_list_size(rest_manager=gl.users, description="users", max_length=1)
+
+    def should_delete_user(user):
+        if user.username == "root":
+            return False
+        return True
+
+    wait_for_list_size(
+        rest_manager=gl.users,
+        description="users",
+        max_length=1,
+        should_delete_func=should_delete_user,
+        delete_kwargs={"hard_delete": True},
+    )
 
 
 def set_token(container, fixture_dir):
