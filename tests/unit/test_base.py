@@ -249,3 +249,71 @@ class TestRESTObject:
             " 'ham': 'eggseggseggseggseggseggseggseggseggseggseggseggseggseggseggs'}\n"
         )
         assert stderr == ""
+
+    def test_asdict(self, fake_manager):
+        fake_object = FakeObject(fake_manager, {"attr1": "foo", "alist": [1, 2, 3]})
+        assert fake_object.attr1 == "foo"
+        result = fake_object.asdict()
+        assert result == {"attr1": "foo", "alist": [1, 2, 3]}
+        # Demonstrate modifying the dictionary does not modify the object
+        result["attr1"] = "testing"
+        result["alist"].append(4)
+        assert result == {"attr1": "testing", "alist": [1, 2, 3, 4]}
+        assert fake_object.attr1 == "foo"
+        assert fake_object.alist == [1, 2, 3]
+        # asdict() returns the updated value
+        fake_object.attr1 = "spam"
+        assert fake_object.asdict() == {"attr1": "spam", "alist": [1, 2, 3]}
+        # Modify attribute and then ensure modifying a list in the returned dict won't
+        # modify the list in the object.
+        fake_object.attr1 = [9, 7, 8]
+        assert fake_object.asdict() == {
+            "attr1": [9, 7, 8],
+            "alist": [1, 2, 3],
+        }
+        result = fake_object.asdict()
+        result["attr1"].append(1)
+        assert fake_object.asdict() == {
+            "attr1": [9, 7, 8],
+            "alist": [1, 2, 3],
+        }
+
+    def test_attributes(self, fake_manager):
+        fake_object = FakeObject(fake_manager, {"attr1": [1, 2, 3]})
+        assert fake_object.attr1 == [1, 2, 3]
+        result = fake_object.attributes
+        assert result == {"attr1": [1, 2, 3]}
+
+        # Updated attribute value is not reflected in `attributes`
+        fake_object.attr1 = "hello"
+        assert fake_object.attributes == {"attr1": [1, 2, 3]}
+        assert fake_object.attr1 == "hello"
+        # New attribute is in `attributes`
+        fake_object.new_attrib = "spam"
+        assert fake_object.attributes == {"attr1": [1, 2, 3], "new_attrib": "spam"}
+
+        # Modifying the dictionary can cause modification to the object :(
+        result = fake_object.attributes
+        result["attr1"].append(10)
+        assert result == {"attr1": [1, 2, 3, 10], "new_attrib": "spam"}
+        assert fake_object.attributes == {"attr1": [1, 2, 3, 10], "new_attrib": "spam"}
+        assert fake_object.attr1 == "hello"
+
+
+    def test_asdict_vs_attributes(self, fake_manager):
+        fake_object = FakeObject(fake_manager, {"attr1": "foo"})
+        assert fake_object.attr1 == "foo"
+        result = fake_object.asdict()
+        assert result == {"attr1": "foo"}
+
+        # New attribute added, return same result
+        assert fake_object.attributes == fake_object.asdict()
+        fake_object.attr2 = "eggs"
+        assert fake_object.attributes == fake_object.asdict()
+        # Update attribute, return different result
+        fake_object.attr1 = "hello"
+        assert fake_object.attributes != fake_object.asdict()
+        # asdict() returns the updated value
+        assert fake_object.asdict() == {"attr1": "hello", "attr2": "eggs"}
+        # `attributes` returns original value
+        assert fake_object.attributes == {"attr1": "foo", "attr2": "eggs"}

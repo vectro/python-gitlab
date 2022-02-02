@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import copy
 import importlib
 import pprint
 import textwrap
@@ -144,15 +145,16 @@ class RESTObject:
     def __setattr__(self, name: str, value: Any) -> None:
         self.__dict__["_updated_attrs"][name] = value
 
+    def asdict(self) -> Dict[str, Any]:
+        data = copy.deepcopy(self._attrs)
+        data.update(copy.deepcopy(self._updated_attrs))
+        return data
+
     def __str__(self) -> str:
-        data = self._attrs.copy()
-        data.update(self._updated_attrs)
-        return f"{type(self)} => {data}"
+        return f"{type(self)} => {self.asdict()}"
 
     def pformat(self) -> str:
-        data = self._attrs.copy()
-        data.update(self._updated_attrs)
-        return f"{type(self)} => \n{pprint.pformat(data)}"
+        return f"{type(self)} => \n{pprint.pformat(self.asdict())}"
 
     def pprint(self) -> None:
         print(self.pformat())

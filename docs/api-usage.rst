@@ -192,6 +192,35 @@ You can print a Gitlab Object. For example:
    # Or explicitly via `pformat()`. This is equivalent to the above.
    print(project.pformat())
 
+You can get a dictionary representation copy of the Gitlab Object. Modifications made to
+the dictionary will have no impact on the GitLab Object. This can also be used
+to create a JSON representation of the object. There are two ways to retrieve a
+dictionary representation of the Gitlab Object.
+
+ * `asdict()` method. Returns a dictionary with updated attributes having precedence.
+ * `attributes` property. Returns a dictionary with original attributes having
+   precedence and then updated attributes. Also returns any relevant parent object
+   attributes.
+
+.. note::
+
+   `attributes` returns the parent object attributes that are defined in
+   `object._from_parent_attrs`. What this can mean is that for example a `ProjectIssue`
+   object will have a `project_id` key in the dictionary returned from `attributes` but
+   `asdict()` will not.
+
+
+.. code-block:: python
+
+   project = gl.projects.get(1)
+   project_dict = project.asdict()
+   # Do a JSON dump of the object
+   print(json.dumps(project.asdict()))
+
+   # Or a dictionary representation also containing some of the parent attributes
+   issue = project.issues.get(1)
+   attribute_dict = issue.attributes
+
 
 Base types
 ==========
