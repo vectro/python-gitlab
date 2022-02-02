@@ -17,6 +17,7 @@
 
 import copy
 import importlib
+import json
 import pprint
 import textwrap
 from dataclasses import dataclass
@@ -150,6 +151,9 @@ class RESTObject:
         data.update(copy.deepcopy(self._attrs))
         data.update(copy.deepcopy(self._updated_attrs))
         return data
+
+    def to_json(self, **kwargs: Any) -> str:
+        return json.dumps(self.asdict(), **kwargs)
 
     def __str__(self) -> str:
         return f"{type(self)} => {self.asdict()}"

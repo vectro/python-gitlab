@@ -193,9 +193,7 @@ You can print a Gitlab Object. For example:
    print(project.pformat())
 
 You can get a dictionary representation copy of the Gitlab Object. Modifications made to
-the dictionary will have no impact on the GitLab Object. This can also be used
-to create a JSON representation of the object. There are two ways to retrieve a
-dictionary representation of the Gitlab Object.
+the dictionary will have no impact on the GitLab Object.
 
  * `asdict()` method. Returns a dictionary representation of the Gitlab object.
  * `attributes` property. Returns a dictionary representation of the Gitlab object.
@@ -213,13 +211,19 @@ dictionary representation of the Gitlab Object.
 
    project = gl.projects.get(1)
    project_dict = project.asdict()
-   # Do a JSON dump of the object
-   print(json.dumps(project.asdict()))
 
    # Or a dictionary representation also containing some of the parent attributes
    issue = project.issues.get(1)
    attribute_dict = issue.attributes
 
+You can get a JSON string represenation of the Gitlab Object. For example:
+
+.. code-block:: python
+
+   project = gl.projects.get(1)
+   print(project.to_json())
+   # Use arguments supported by `json.dump()`
+   print(project.to_json(sort_keys=True, indent=4))
 
 Base types
 ==========

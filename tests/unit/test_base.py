@@ -298,3 +298,7 @@ class TestRESTObject:
         result["attr1"].append(10)
         assert result == {"attr1": [1, 2, 3, 10]}
         assert fake_object.attributes == {"attr1": [1, 2, 3]}
+
+    def test_to_json(self, fake_manager):
+        fake_object = FakeObject(fake_manager, {"attr1": [1, 2, 3]})
+        assert fake_object.to_json() == '{"attr1": [1, 2, 3]}'
