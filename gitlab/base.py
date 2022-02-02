@@ -146,7 +146,8 @@ class RESTObject:
         self.__dict__["_updated_attrs"][name] = value
 
     def asdict(self) -> Dict[str, Any]:
-        data = copy.deepcopy(self._attrs)
+        data = {}
+        data.update(copy.deepcopy(self._attrs))
         data.update(copy.deepcopy(self._updated_attrs))
         return data
 
@@ -231,10 +232,10 @@ class RESTObject:
 
     @property
     def attributes(self) -> Dict[str, Any]:
-        d = self.__dict__["_updated_attrs"].copy()
-        d.update(self.__dict__["_attrs"])
-        d.update(self.__dict__["_parent_attrs"])
-        return d
+        data = {}
+        data.update(copy.deepcopy(self._parent_attrs))
+        data.update(copy.deepcopy(self.asdict()))
+        return data
 
 
 class RESTObjectList:

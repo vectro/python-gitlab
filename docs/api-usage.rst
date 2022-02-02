@@ -197,10 +197,9 @@ the dictionary will have no impact on the GitLab Object. This can also be used
 to create a JSON representation of the object. There are two ways to retrieve a
 dictionary representation of the Gitlab Object.
 
- * `asdict()` method. Returns a dictionary with updated attributes having precedence.
- * `attributes` property. Returns a dictionary with original attributes having
-   precedence and then updated attributes. Also returns any relevant parent object
-   attributes.
+ * `asdict()` method. Returns a dictionary representation of the Gitlab object.
+ * `attributes` property. Returns a dictionary representation of the Gitlab object.
+   Also returns any relevant parent object attributes.
 
 .. note::
 

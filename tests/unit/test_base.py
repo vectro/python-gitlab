@@ -284,36 +284,17 @@ class TestRESTObject:
         result = fake_object.attributes
         assert result == {"attr1": [1, 2, 3]}
 
-        # Updated attribute value is not reflected in `attributes`
+        # Updated attribute value is reflected in `attributes`
         fake_object.attr1 = "hello"
-        assert fake_object.attributes == {"attr1": [1, 2, 3]}
+        assert fake_object.attributes == {"attr1": "hello"}
         assert fake_object.attr1 == "hello"
         # New attribute is in `attributes`
         fake_object.new_attrib = "spam"
-        assert fake_object.attributes == {"attr1": [1, 2, 3], "new_attrib": "spam"}
+        assert fake_object.attributes == {"attr1": "hello", "new_attrib": "spam"}
 
-        # Modifying the dictionary can cause modification to the object :(
+        # Modifying the dictionary does not cause modifications to the object
+        fake_object = FakeObject(fake_manager, {"attr1": [1, 2, 3]})
         result = fake_object.attributes
         result["attr1"].append(10)
-        assert result == {"attr1": [1, 2, 3, 10], "new_attrib": "spam"}
-        assert fake_object.attributes == {"attr1": [1, 2, 3, 10], "new_attrib": "spam"}
-        assert fake_object.attr1 == "hello"
-
-
-    def test_asdict_vs_attributes(self, fake_manager):
-        fake_object = FakeObject(fake_manager, {"attr1": "foo"})
-        assert fake_object.attr1 == "foo"
-        result = fake_object.asdict()
-        assert result == {"attr1": "foo"}
-
-        # New attribute added, return same result
-        assert fake_object.attributes == fake_object.asdict()
-        fake_object.attr2 = "eggs"
-        assert fake_object.attributes == fake_object.asdict()
-        # Update attribute, return different result
-        fake_object.attr1 = "hello"
-        assert fake_object.attributes != fake_object.asdict()
-        # asdict() returns the updated value
-        assert fake_object.asdict() == {"attr1": "hello", "attr2": "eggs"}
-        # `attributes` returns original value
-        assert fake_object.attributes == {"attr1": "foo", "attr2": "eggs"}
+        assert result == {"attr1": [1, 2, 3, 10]}
+        assert fake_object.attributes == {"attr1": [1, 2, 3]}
