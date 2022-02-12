@@ -184,6 +184,22 @@ def wait_for_sidekiq(gl):
     return _wait
 
 
+def wait_for_deleted(
+    *, pg_manager: gitlab.base.RESTManager, object_id: int, description: str
+) -> None:
+    """Ensure the object specified can not be retrieved. If object still exists after
+    timeout period, fail the test"""
+    max_iterations = int(TIMEOUT / SLEEP_INTERVAL)
+
+    for _ in range(max_iterations):
+        try:
+            pg_manager.get(object_id)
+        except gitlab.exceptions.GitlabGetError:
+            return
+        time.sleep(SLEEP_INTERVAL)
+    pytest.fail(f"{description} {object_id} was not deleted")
+
+
 @pytest.fixture(scope="session")
 def gitlab_config(check_is_alive, docker_ip, docker_services, temp_dir, fixture_dir):
     config_file = temp_dir / "python-gitlab.cfg"
@@ -263,6 +279,7 @@ def group(gl):
         "path": f"group-{_id}",
     }
     group = gl.groups.create(data)
+    group_id = group.id
 
     yield group
 
@@ -270,6 +287,8 @@ def group(gl):
         group.delete()
     except gitlab.exceptions.GitlabDeleteError as e:
         print(f"Group already deleted: {e}")
+
+    wait_for_deleted(pg_manager=gl.groups, object_id=group_id, description="Group")
 
 
 @pytest.fixture(scope="module")
@@ -279,6 +298,7 @@ def project(gl):
     name = f"test-project-{_id}"
 
     project = gl.projects.create(name=name)
+    project_id = project.id
 
     yield project
 
@@ -286,6 +306,10 @@ def project(gl):
         project.delete()
     except gitlab.exceptions.GitlabDeleteError as e:
         print(f"Project already deleted: {e}")
+
+    wait_for_deleted(
+        pg_manager=gl.projects, object_id=project_id, description="Project"
+    )
 
 
 @pytest.fixture(scope="function")
@@ -358,6 +382,18 @@ def merge_request(project, wait_for_sidekiq):
             # Ignore if branch was already deleted
             pass
 
+    for mr_iid, source_branch in to_delete:
+        wait_for_deleted(
+            pg_manager=project.mergerequests,
+            object_id=mr_iid,
+            description="Project mergerequest",
+        )
+        wait_for_deleted(
+            pg_manager=project.branches,
+            object_id=source_branch,
+            description="Project branch",
+        )
+
 
 @pytest.fixture(scope="module")
 def project_file(project):
@@ -417,6 +453,7 @@ def user(gl):
     password = "fakepassword"
 
     user = gl.users.create(email=email, username=username, name=name, password=password)
+    user_id = user.id
 
     yield user
 
@@ -425,6 +462,8 @@ def user(gl):
         user.delete(hard_delete=True)
     except gitlab.exceptions.GitlabDeleteError as e:
         print(f"User already deleted: {e}")
+
+    wait_for_deleted(pg_manager=gl.users, object_id=user_id, description="User")
 
 
 @pytest.fixture(scope="module")
