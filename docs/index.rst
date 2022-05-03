@@ -6,6 +6,7 @@
 
    cli-usage
    api-usage
+   graphql-api-usage
    cli-examples
    api-objects
    api/gitlab

@@ -16,7 +16,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Wrapper for the GitLab API."""
 
+import abc
 import os
+import sys
 import time
 from typing import Any, cast, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
@@ -29,6 +31,10 @@ import gitlab.config
 import gitlab.const
 import gitlab.exceptions
 from gitlab import utils
+
+if TYPE_CHECKING or ("sphinx" in sys.modules):
+    import gql
+    from graphql import DocumentNode
 
 REDIRECT_MSG = (
     "python-gitlab detected a {status_code} ({reason!r}) redirection. You must update "
@@ -45,7 +51,86 @@ _PAGINATION_URL = (
 )
 
 
-class Gitlab:
+class _BaseGitlab:
+    """Represents a GitLab server connection.
+
+    Args:
+        url: The URL of the GitLab server (defaults to https://gitlab.com).
+        private_token: The user private token
+        oauth_token: An oauth token
+        job_token: A CI job token
+        ssl_verify: Whether SSL certificates should be validated. If
+            the value is a string, it is the path to a CA file used for
+            certificate validation.
+        timeout: Timeout to use for requests to the GitLab server.
+        http_username: Username for HTTP authentication
+        http_password: Password for HTTP authentication
+        api_version: Gitlab API version to use (support for 4 only)
+        pagination: Can be set to 'keyset' to use keyset pagination
+        order_by: Set order_by globally
+        user_agent: A custom user agent to use for making HTTP requests.
+        retry_transient_errors: Whether to retry after 500, 502, 503, 504
+            or 52x responses. Defaults to False.
+    """
+
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        private_token: Optional[str] = None,
+        oauth_token: Optional[str] = None,
+        job_token: Optional[str] = None,
+        ssl_verify: Union[bool, str] = True,
+        http_username: Optional[str] = None,
+        http_password: Optional[str] = None,
+        session: Optional[requests.Session] = None,
+        timeout: Optional[float] = None,
+        user_agent: str = gitlab.const.USER_AGENT,
+        retry_transient_errors: bool = False,
+    ) -> None:
+        self._server_version: Optional[str] = None
+        self._server_revision: Optional[str] = None
+        self._base_url = self._get_base_url(url)
+        #: Timeout to use for requests to gitlab server
+        self.timeout = timeout
+        self.retry_transient_errors = retry_transient_errors
+        #: Headers that will be used in request to GitLab
+        self.headers = {"User-Agent": user_agent}
+
+        #: Whether SSL certificates should be validated
+        self.ssl_verify = ssl_verify
+
+        self.private_token = private_token
+        self.http_username = http_username
+        self.http_password = http_password
+        self.oauth_token = oauth_token
+        self.job_token = job_token
+        self._set_auth_info()
+
+        #: Create a session object for requests
+        self.session = session or requests.Session()
+
+    def _get_base_url(self, url: Optional[str] = None) -> str:
+        """Return the base URL with the trailing slash stripped.
+        If the URL is a Falsy value, return the default URL.
+        Returns:
+            The base URL
+        """
+        if not url:
+            return gitlab.const.DEFAULT_URL
+
+        return url.rstrip("/")
+
+    @property
+    def url(self) -> str:
+        """The user-provided server URL."""
+        return self._base_url
+
+    @abc.abstractmethod
+    def _set_auth_info(self) -> None:
+        pass
+
+
+class Gitlab(_BaseGitlab):
     """Represents a GitLab server connection.
 
     Args:
@@ -85,30 +170,22 @@ class Gitlab:
         user_agent: str = gitlab.const.USER_AGENT,
         retry_transient_errors: bool = False,
     ) -> None:
-
+        super().__init__(
+            url,
+            private_token,
+            oauth_token,
+            job_token,
+            ssl_verify,
+            http_username,
+            http_password,
+            session,
+            timeout,
+            user_agent,
+            retry_transient_errors,
+        )
         self._api_version = str(api_version)
-        self._server_version: Optional[str] = None
-        self._server_revision: Optional[str] = None
-        self._base_url = self._get_base_url(url)
         self._url = f"{self._base_url}/api/v{api_version}"
-        #: Timeout to use for requests to gitlab server
-        self.timeout = timeout
-        self.retry_transient_errors = retry_transient_errors
-        #: Headers that will be used in request to GitLab
-        self.headers = {"User-Agent": user_agent}
-
-        #: Whether SSL certificates should be validated
-        self.ssl_verify = ssl_verify
-
-        self.private_token = private_token
-        self.http_username = http_username
-        self.http_password = http_password
-        self.oauth_token = oauth_token
-        self.job_token = job_token
         self._set_auth_info()
-
-        #: Create a session object for requests
-        self.session = session or requests.Session()
 
         self.per_page = per_page
         self.pagination = pagination
@@ -214,11 +291,6 @@ class Gitlab:
         import gitlab.v4.objects
 
         self._objects = gitlab.v4.objects
-
-    @property
-    def url(self) -> str:
-        """The user-provided server URL."""
-        return self._base_url
 
     @property
     def api_url(self) -> str:
@@ -530,17 +602,6 @@ class Gitlab:
             "timeout": self.timeout,
             "verify": self.ssl_verify,
         }
-
-    def _get_base_url(self, url: Optional[str] = None) -> str:
-        """Return the base URL with the trailing slash stripped.
-        If the URL is a Falsy value, return the default URL.
-        Returns:
-            The base URL
-        """
-        if not url:
-            return gitlab.const.DEFAULT_URL
-
-        return url.rstrip("/")
 
     def _build_url(self, path: str) -> str:
         """Returns the full url from path.
@@ -1150,3 +1211,66 @@ class GitlabList:
             return self.next()
 
         raise StopIteration
+
+
+class GraphQLGitlab(_BaseGitlab):
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        private_token: Optional[str] = None,
+        oauth_token: Optional[str] = None,
+        job_token: Optional[str] = None,
+        ssl_verify: Union[bool, str] = True,
+        http_username: Optional[str] = None,
+        http_password: Optional[str] = None,
+        session: Optional[requests.Session] = None,
+        timeout: Optional[float] = None,
+        user_agent: str = gitlab.const.USER_AGENT,
+        retry_transient_errors: bool = False,
+        fetch_schema_from_transport: bool = False,
+    ) -> None:
+        super().__init__(
+            url,
+            private_token,
+            oauth_token,
+            job_token,
+            ssl_verify,
+            http_username,
+            http_password,
+            session,
+            timeout,
+            user_agent,
+            retry_transient_errors,
+        )
+        self._url = f"{self._base_url}/api/graphql"
+        self.fetch_schema_from_transport = fetch_schema_from_transport
+
+        try:
+            import gql
+            from gql.dsl import DSLSchema
+
+            from .graphql.transport import GitlabSyncTransport
+        except ImportError:
+            raise ImportError(
+                "The GraphQLGitlab client could not be initialized because "
+                "the gql dependency is not installed. "
+                "Install it with 'pip install python-gitlab[graphql]'"
+            )
+
+        self._transport = GitlabSyncTransport(self._url, session=self.session)
+        self._client = gql.Client(
+            transport=self._transport,
+            fetch_schema_from_transport=fetch_schema_from_transport,
+        )
+
+    def _set_auth_info(self) -> None:
+        if self.private_token and self.oauth_token:
+            raise ValueError(
+                "Only one of private_token or oauth_token should be defined"
+            )
+
+        token = self.private_token or self.oauth_token
+        self.headers["Authorization"] = f"Bearer {token}"
+
+    def execute(self, document: "DocumentNode", *args, **kwargs) -> Any:
+        return self._client.execute(document, *args, **kwargs)
