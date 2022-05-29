@@ -784,6 +784,29 @@ Get total fetches in last 30 days of a project::
 
     total_fetches = project.additionalstatistics.get().fetches['total']
 
+Project CI Lint
+=============================
+
+Reference
+---------
+
+* v4 API:
+
+  + :class:`gitlab.v4.objects.ProjectCiLint`
+  + :class:`gitlab.v4.objects.ProjectCiLintManager`
+  + :attr:`gitlab.v4.objects.Project.ci_lint`
+
+* GitLab API: https://docs.gitlab.com/ee/api/lint.html#validate-a-projects-ci-configuration
+
+Examples
+---------
+
+Validate a project's CI configuration::
+
+    lint_result = project.ci_lint.get()
+    assert lint_result.valid is True  # Test that the .gitlab-ci.yml is valid
+    print(lint_result.merged_yaml)    # Print the merged YAML file
+
 Project storage
 =============================
 

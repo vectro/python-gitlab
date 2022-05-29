@@ -1,3 +1,8 @@
+"""
+GitLab API:
+https://docs.gitlab.com/ee/api/projects.html
+https://docs.gitlab.com/ee/api/lint.html#validate-a-projects-ci-configuration
+"""
 from typing import Any, Callable, cast, Dict, List, Optional, TYPE_CHECKING, Union
 
 import requests
@@ -83,6 +88,8 @@ __all__ = [
     "ProjectRemoteMirrorManager",
     "ProjectStorage",
     "ProjectStorageManager",
+    "ProjectCiLint",
+    "ProjectCiLintManager",
 ]
 
 
@@ -144,6 +151,7 @@ class Project(RefreshMixin, SaveMixin, ObjectDeleteMixin, RepositoryMixin, RESTO
     badges: ProjectBadgeManager
     boards: ProjectBoardManager
     branches: ProjectBranchManager
+    ci_lint: "ProjectCiLintManager"
     clusters: ProjectClusterManager
     commits: ProjectCommitManager
     customattributes: ProjectCustomAttributeManager
@@ -1032,3 +1040,27 @@ class ProjectStorageManager(GetWithoutIdMixin, RESTManager):
         self, id: Optional[Union[int, str]] = None, **kwargs: Any
     ) -> Optional[ProjectStorage]:
         return cast(Optional[ProjectStorage], super().get(id=id, **kwargs))
+
+
+class ProjectCiLint(RESTObject):
+    pass
+
+
+class ProjectCiLintManager(GetWithoutIdMixin, RESTManager):
+    _path = "/projects/{project_id}/ci/lint"
+    _obj_cls = ProjectCiLint
+    _from_parent_attrs = {"project_id": "id"}
+    # https://docs.gitlab.com/ee/api/lint.html#validate-a-projects-ci-configuration
+
+    def get(
+        self, id: Optional[Union[int, str]] = None, **kwargs: Any
+    ) -> Optional[ProjectCiLint]:
+        if id is not None:
+            raise AttributeError("Unsupported attribute: id")
+
+        if TYPE_CHECKING:
+            assert self.path is not None
+        server_data = self.gitlab.http_get(self.path, **kwargs)
+        if TYPE_CHECKING:
+            assert isinstance(server_data, dict)
+        return self._obj_cls(self, server_data)
