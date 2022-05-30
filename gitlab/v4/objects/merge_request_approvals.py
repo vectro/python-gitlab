@@ -1,4 +1,4 @@
-from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
 from gitlab import exceptions as exc
 from gitlab.base import RequiredOptional, RESTManager, RESTObject
@@ -45,10 +45,8 @@ class ProjectApprovalManager(GetWithoutIdMixin, UpdateMixin, RESTManager):
     )
     _update_uses_post = True
 
-    def get(
-        self, id: Optional[Union[int, str]] = None, **kwargs: Any
-    ) -> ProjectApproval:
-        return cast(ProjectApproval, super().get(id=id, **kwargs))
+    def get(self, **kwargs: Any) -> ProjectApproval:
+        return cast(ProjectApproval, super().get(**kwargs))
 
     @exc.on_http_error(exc.GitlabUpdateError)
     def set_approvers(
@@ -110,10 +108,8 @@ class ProjectMergeRequestApprovalManager(GetWithoutIdMixin, UpdateMixin, RESTMan
     _update_attrs = RequiredOptional(required=("approvals_required",))
     _update_uses_post = True
 
-    def get(
-        self, id: Optional[Union[int, str]] = None, **kwargs: Any
-    ) -> ProjectMergeRequestApproval:
-        return cast(ProjectMergeRequestApproval, super().get(id=id, **kwargs))
+    def get(self, **kwargs: Any) -> ProjectMergeRequestApproval:
+        return cast(ProjectMergeRequestApproval, super().get(**kwargs))
 
     @exc.on_http_error(exc.GitlabUpdateError)
     def set_approvers(
@@ -252,7 +248,5 @@ class ProjectMergeRequestApprovalStateManager(GetWithoutIdMixin, RESTManager):
     _obj_cls = ProjectMergeRequestApprovalState
     _from_parent_attrs = {"project_id": "project_id", "mr_iid": "iid"}
 
-    def get(
-        self, id: Optional[Union[int, str]] = None, **kwargs: Any
-    ) -> ProjectMergeRequestApprovalState:
-        return cast(ProjectMergeRequestApprovalState, super().get(id=id, **kwargs))
+    def get(self, **kwargs: Any) -> ProjectMergeRequestApprovalState:
+        return cast(ProjectMergeRequestApprovalState, super().get(**kwargs))
